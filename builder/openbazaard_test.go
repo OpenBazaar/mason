@@ -1,17 +1,29 @@
 package builder_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/OpenBazaar/samulator/builder"
+	shell "github.com/placer14/go-shell"
 )
 
-func TestOpenBazaarBuilder(t *testing.T) {
-	node := builder.NewOpenBazaarDaemon("label", "HEAD^")
+func init() {
+	shell.Panic = false
+}
 
-	_, err := node.Build()
+func TestOpenBazaarBuilder(t *testing.T) {
+	node := builder.NewOpenBazaarDaemon("label", "v0.13.0")
+
+	ob, err := node.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	version, err := ob.Version()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("current version: %s\n", version)
 	defer node.MustClean()
 }
