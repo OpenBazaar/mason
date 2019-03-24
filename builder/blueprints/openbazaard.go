@@ -63,7 +63,12 @@ func openbazaardSource() string {
 	var source = openbazaardDefaultSource
 	if altSource := os.Getenv("OPENBAZAARD_SOURCE"); altSource != "" {
 		log.Infof("using alternative OPENBAZAARD_SOURCE (%s)", altSource)
-		source = altSource
+		altPath, err := filepath.Abs(altSource)
+		if err != nil {
+			log.Warningf("can't find absolute path for OPENBAZAARD_SOURCE (%s)", altSource)
+			altPath = source
+		}
+		source = altPath
 	}
 	return fmt.Sprintf("git clone %s .", source)
 }

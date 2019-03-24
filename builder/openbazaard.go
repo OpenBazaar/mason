@@ -57,7 +57,7 @@ func (b *openBazaarBuilder) generateOSSpecificBuild(buildPath string) error {
 		buildBinary = shell.Cmd(
 			// prioritize local package before using global GOPATH package
 			fmt.Sprintf("GOPATH=%s", b.workDir),
-			"xgo", "-targets", targets, // build arch/OS targets
+			"xgo", "-xv", "-targets", targets, // build arch/OS targets
 			"-dest ./dest",         // build destination path
 			"-out", b.xgoOutname(), // binary name prefix
 			"-go", GO_BUILD_VERION, // specific go build version
