@@ -12,6 +12,8 @@ import (
 	shell "github.com/placer14/go-shell"
 )
 
+const GO_BUILD_VERION = "1.10"
+
 var log = logging.MustGetLogger("builder")
 
 type openBazaarBuilder struct {
@@ -54,10 +56,11 @@ func (b *openBazaarBuilder) generateOSSpecificBuild(buildPath string) error {
 		getXGo      = shell.Cmd("go", "get", "github.com/karalabe/xgo")
 		buildBinary = shell.Cmd(
 			// prioritize local package before using global GOPATH package
-			fmt.Sprintf("GOPATH=%s:%s", b.workDir, os.Getenv("GOPATH")),
+			fmt.Sprintf("GOPATH=%s", b.workDir),
 			"xgo", "-targets", targets, // build arch/OS targets
 			"-dest ./dest",         // build destination path
 			"-out", b.xgoOutname(), // binary name prefix
+			"-go", GO_BUILD_VERION, // specific go build version
 			buildPath,
 		)
 		buildCommands = []*shell.Command{getXGo, buildBinary}
