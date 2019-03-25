@@ -31,69 +31,45 @@ func NewOpenBazaarDaemon(label, version string) *openBazaarBuilder {
 	}
 }
 
-func (b *openBazaarBuilder) xgoOutname() string {
-	return fmt.Sprintf("openbazaard_%s", b.versionReference)
-}
 func (b *openBazaarBuilder) Build() (*runner.OpenBazaarRunner, error) {
 	b.workDir = generateTempPath(b.friendlyLabel)
 	log.Infof("building at %s", b.workDir)
+
 	src, err := blueprints.InflateOpenBazaarDaemon(b.workDir)
 	if err != nil {
 		return nil, fmt.Errorf("inflating source: %s", err.Error())
 	}
+
 	if err := src.CheckoutVersion(b.versionReference); err != nil {
 		return nil, fmt.Errorf("checkout version: %s", err.Error())
 	}
-	if err := b.generateOSSpecificBuild(src.PackagePath()); err != nil {
+
+	if err := generateOSSpecificBuild(src); err != nil {
 		return nil, fmt.Errorf("building for %s: %s", runtime.GOOS, err.Error())
 	}
 	return runner.FromBinaryPath(b.binaryPath())
 }
 
-func (b *openBazaarBuilder) generateOSSpecificBuild(buildPath string) error {
+func generateOSSpecificBuild(src *OpenBazaarSource) error {
 	var (
-		targets     = b.getBuildTarget()
 		getXGo      = shell.Cmd("go", "get", "github.com/karalabe/xgo")
 		buildBinary = shell.Cmd(
-			// prioritize local package before using global GOPATH package
-			fmt.Sprintf("GOPATH=%s", b.workDir),
-			"xgo", "-xv", "-targets", targets, // build arch/OS targets
-			"-dest ./dest",         // build destination path
-			"-out", b.xgoOutname(), // binary name prefix
+			fmt.Sprintf("GOPATH=%s", src.WorkDir()),
+			"xgo", "-xv", "-targets", getXGoBuildTarget(), // build arch/OS targets
+			"-dest ./dest",               // build destination path
+			"-out", src.BinaryFilename(), // binary name prefix
 			"-go", GO_BUILD_VERION, // specific go build version
-			buildPath,
+			"github.com/OpenBazaar/openbazaar-go",
 		)
 		buildCommands = []*shell.Command{getXGo, buildBinary}
 	)
 	for _, cmd := range buildCommands {
-		var proc = cmd.SetWorkDir(b.workDir).Run()
+		var proc = cmd.SetWorkDir(src.WorkDir()).Run()
 		if proc.ExitStatus != 0 {
 			return fmt.Errorf("non-zero build exit: %s", proc.Error())
 		}
 	}
 	return nil
-}
-
-func (b *openBazaarBuilder) getBuildTarget() string {
-	if b.targetOS == "" {
-		switch runtime.GOOS {
-		case "darwin", "linux", "windows":
-			b.targetOS = runtime.GOOS
-		default:
-			log.Errorf("unsupported OS")
-		}
-	}
-
-	if b.targetArch == "" {
-		switch runtime.GOARCH {
-		case "386", "amd64":
-			b.targetArch = runtime.GOARCH
-		default:
-			log.Errorf("unsupported architecture")
-		}
-	}
-
-	return fmt.Sprintf("%s/%s", b.targetOS, b.targetArch)
 }
 
 func (b *openBazaarBuilder) binaryPath() string {

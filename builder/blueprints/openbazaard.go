@@ -17,45 +17,57 @@ const openbazaardDefaultSource = "https://github.com/OpenBazaar/openbazaar-go"
 
 var log = logging.MustGetLogger("blueprints")
 
-type openBazaarSource struct {
-	workingDir string
+type OpenBazaarSource struct {
+	workingDir          string
+	checkedoutReference string
 }
 
-func InflateOpenBazaarDaemon(targetDirectory string) (*openBazaarSource, error) {
-	var source = &openBazaarSource{workingDir: targetDirectory}
+// InflateOpenBazaarDaemon creates a copy of the openbazaard source
+// at the specified targetDirectory. Default version is `master` and can
+// be set with *OpenBazaarSource.CheckoutVersion.
+func InflateOpenBazaarDaemon(targetDirectory string) (*OpenBazaarSource, error) {
+	var source = &OpenBazaarSource{
+		workingDir:          targetDirectory,
+		checkedoutReference: "master",
+	}
 	if err := source.inflate(); err != nil {
 		return nil, err
 	}
 	return source, nil
 }
 
-func (s *openBazaarSource) inflate() error {
-	var packagePath = s.PackagePath()
-	if _, err := os.Stat(packagePath); err != nil && os.IsNotExist(err) {
+func (s *OpenBazaarSource) inflate() error {
+	if _, err := os.Stat(s.packagePath()); err != nil && os.IsNotExist(err) {
 		log.Infof("inflating openbazaard source")
-		if mkerr := os.MkdirAll(packagePath, os.ModePerm); mkerr != nil {
+		if mkerr := os.MkdirAll(s.packagePath(), os.ModePerm); mkerr != nil {
 			return fmt.Errorf("making source path: %s", mkerr.Error())
 		}
-		proc := shell.Cmd(openbazaardSource()).SetWorkDir(packagePath).Run()
+		proc := shell.Cmd(openbazaardSource()).SetWorkDir(s.packagePath()).Run()
 		if proc.ExitStatus != 0 {
 			return fmt.Errorf("cloning source: %s", proc.Error())
 		}
 	} else {
-		log.Warningf("inflating openbazaard source skipped, source found at %s", packagePath)
+		log.Warningf("inflating openbazaard source skipped, source found at %s", s.packagePath())
 	}
 	return nil
 }
 
-func (s *openBazaarSource) PackagePath() string {
+// WorkDir is the root of a GOPATH which contains the checked-out source
+func (s *OpenBazaarSource) WorkDir() string { return s.workingDir }
+
+func (s *OpenBazaarSource) packagePath() string {
 	return filepath.Join(s.workingDir, "src", "github.com", "OpenBazaar", "openbazaar-go")
 }
 
-func (s *openBazaarSource) CheckoutVersion(ref string) error {
+// CheckoutVersion sets the source state to match the files which were
+// checked-in at the git commit `ref`
+func (s *OpenBazaarSource) CheckoutVersion(ref string) error {
 	log.Infof("checkout openbazaard version %s", ref)
-	var proc = shell.Cmd("git checkout", ref).SetWorkDir(s.PackagePath()).Run()
+	var proc = shell.Cmd("git checkout", ref).SetWorkDir(s.packagePath()).Run()
 	if proc.ExitStatus != 0 {
 		return fmt.Errorf("failed checkout version (%s): %s", ref, proc.Error())
 	}
+	s.checkedoutReference = ref
 	return nil
 }
 
@@ -71,4 +83,8 @@ func openbazaardSource() string {
 		source = altPath
 	}
 	return fmt.Sprintf("git clone %s .", source)
+}
+
+func (s *OpenBazaarSource) BinaryFilename() string {
+	return fmt.Sprintf("openbazaard_%s", s.checkedoutReference)
 }
