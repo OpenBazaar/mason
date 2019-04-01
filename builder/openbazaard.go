@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/OpenBazaar/samulator/builder/blueprints"
 	"github.com/OpenBazaar/samulator/builder/runner"
@@ -12,7 +13,7 @@ import (
 	shell "github.com/placer14/go-shell"
 )
 
-const GO_BUILD_VERION = "1.10"
+const GO_BUILD_VERSION = "1.11"
 
 var log = logging.MustGetLogger("builder")
 
@@ -44,40 +45,42 @@ func (b *openBazaarBuilder) Build() (*runner.OpenBazaarRunner, error) {
 		return nil, fmt.Errorf("checkout version: %s", err.Error())
 	}
 
-	if err := generateOSSpecificBuild(src); err != nil {
+	runner, err := generateOSSpecificBuild(src)
+	if err != nil {
 		return nil, fmt.Errorf("building for %s: %s", runtime.GOOS, err.Error())
 	}
-	return runner.FromBinaryPath(b.binaryPath())
+	return runner, nil
 }
 
-func generateOSSpecificBuild(src *OpenBazaarSource) error {
+func generateOSSpecificBuild(src *blueprints.OpenBazaarSource) (*runner.OpenBazaarRunner, error) {
 	var (
 		getXGo      = shell.Cmd("go", "get", "github.com/karalabe/xgo")
 		buildBinary = shell.Cmd(
 			fmt.Sprintf("GOPATH=%s", src.WorkDir()),
-			"xgo", "-xv", "-targets", getXGoBuildTarget(), // build arch/OS targets
-			"-dest ./dest",               // build destination path
-			"-out", src.BinaryFilename(), // binary name prefix
-			"-go", GO_BUILD_VERION, // specific go build version
-			"github.com/OpenBazaar/openbazaar-go",
+			"xgo", "-v", "-targets", getXGoBuildTarget(), // build arch/OS targets
+			"-dest=./dest",             // build destination path
+			"-out", src.BinaryPrefix(), // binary name prefix
+			"-go", GO_BUILD_VERSION, // specific go build version
+			filepath.Join(src.WorkDir(), "src", "github.com", "OpenBazaar", "openbazaar-go"),
 		)
 		buildCommands = []*shell.Command{getXGo, buildBinary}
 	)
 	for _, cmd := range buildCommands {
 		var proc = cmd.SetWorkDir(src.WorkDir()).Run()
 		if proc.ExitStatus != 0 {
-			return fmt.Errorf("non-zero build exit: %s", proc.Error())
+			return nil, fmt.Errorf("non-zero build exit: %s", proc.Error())
 		}
 	}
-	return nil
+	return runner.FromBinaryPath(binaryPath(src))
 }
 
-func (b *openBazaarBuilder) binaryPath() string {
-	return filepath.Join(b.workDir, "dest", b.binaryFilename())
-}
-
-func (b *openBazaarBuilder) binaryFilename() string {
-	return fmt.Sprintf("%s-%s-10.6-%s", b.xgoOutname(), b.targetOS, b.targetArch)
+func binaryPath(src *blueprints.OpenBazaarSource) string {
+	var (
+		targets        = strings.Split(getXGoBuildTarget(), "/")
+		os, arch       = targets[0], targets[1]
+		binaryFilename = fmt.Sprintf("%s-%s-10.6-%s", src.BinaryPrefix(), os, arch)
+	)
+	return filepath.Join(src.WorkDir(), "dest", binaryFilename)
 }
 
 func (b *openBazaarBuilder) MustClean() {

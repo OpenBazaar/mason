@@ -85,6 +85,6 @@ func openbazaardSource() string {
 	return fmt.Sprintf("git clone %s .", source)
 }
 
-func (s *OpenBazaarSource) BinaryFilename() string {
+func (s *OpenBazaarSource) BinaryPrefix() string {
 	return fmt.Sprintf("openbazaard_%s", s.checkedoutReference)
 }

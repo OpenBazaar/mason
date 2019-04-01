@@ -18,7 +18,8 @@ func TestOpenBazaarBuildsInParallel(t *testing.T) {
 	wg.Add(2)
 
 	go func() {
-		expectedVersion := "0.13.0"
+		defer wg.Done()
+		expectedVersion := "0.13.2"
 		node := builder.NewOpenBazaarDaemon("label", fmt.Sprintf("v%s", expectedVersion))
 		defer node.MustClean()
 
@@ -32,14 +33,14 @@ func TestOpenBazaarBuildsInParallel(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if version != "0.13.0" {
+		if version != expectedVersion {
 			t.Fatalf("expected version %s, got %s", expectedVersion, version)
 		}
-		wg.Done()
 	}()
 
 	go func() {
-		expectedVersion := "0.12.0"
+		defer wg.Done()
+		expectedVersion := "0.13.1"
 		node := builder.NewOpenBazaarDaemon("label", fmt.Sprintf("v%s", expectedVersion))
 		defer node.MustClean()
 
@@ -52,10 +53,9 @@ func TestOpenBazaarBuildsInParallel(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if version != "0.12.0" {
-			t.Fatalf("expected version %s, got %s", expectedVersion, version)
+		if version != expectedVersion {
+			t.Errorf("expected version %s, got %s", expectedVersion, version)
 		}
-		wg.Done()
 	}()
 
 	wg.Wait()
