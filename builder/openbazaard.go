@@ -18,6 +18,7 @@ const GO_BUILD_VERSION = "1.11"
 var log = logging.MustGetLogger("builder")
 
 type openBazaarBuilder struct {
+	cachePath        string
 	friendlyLabel    string
 	versionReference string
 	workDir          string
@@ -29,10 +30,19 @@ func NewOpenBazaarDaemon(label, version string) *openBazaarBuilder {
 	return &openBazaarBuilder{
 		friendlyLabel:    label,
 		versionReference: version,
+		cachePath:        fmt.Sprintf("~/.%s", "samulator"),
 	}
 }
 
 func (b *openBazaarBuilder) Build() (*runner.OpenBazaarRunner, error) {
+	c, err := cacher.Open(b.cachePath)
+	if err != nil {
+		log.Warningf("failed opening cache (at %s): %s", b.cachePath, err.Error())
+	}
+	if runnerPath, err := c.Get("openbazaard", b.versionReference); err == nil {
+		return runner.FromBinaryPath(runnerPath)
+	}
+
 	b.workDir = generateTempPath(b.friendlyLabel)
 	log.Infof("building at %s", b.workDir)
 
@@ -50,6 +60,11 @@ func (b *openBazaarBuilder) Build() (*runner.OpenBazaarRunner, error) {
 		return nil, fmt.Errorf("building for %s: %s", runtime.GOOS, err.Error())
 	}
 	return runner, nil
+
+	if err := cacher.Cache("openbazaard", b.versionReference, binaryPath(src)); err != nil {
+		log.Warningf("failed caching build for %s (%s): %s", "openbazaard", v.versionReference, err.Error())
+	}
+	return runner.FromBinaryPath(b.binaryPath())
 }
 
 func generateOSSpecificBuild(src *blueprints.OpenBazaarSource) (*runner.OpenBazaarRunner, error) {
