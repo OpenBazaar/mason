@@ -13,8 +13,9 @@ import (
 )
 
 func mustGetCleanTempDir(dirMemo string) (string, func()) {
+	var r = rand.New(rand.NewSource(time.Now().UnixNano()))
+	time.Sleep(time.Duration(r.Intn(9999)) * time.Nanosecond)
 	var (
-		r      = rand.New(rand.NewSource(time.Now().UnixNano()))
 		target = filepath.Join(os.TempDir(), fmt.Sprintf("%s_test_%d", dirMemo, r.Intn(9999)))
 	)
 	if _, err := os.Stat(target); !os.IsNotExist(err) {
@@ -154,5 +155,55 @@ func TestCacherCachesAndIndexes(t *testing.T) {
 
 	if expectedPath != path {
 		t.Errorf("expected path to be (%s), but was (%s)", expectedPath, path)
+	}
+}
+
+func TestCanCacheMultiple(t *testing.T) {
+	var (
+		newTestBinary = func() (string, func()) {
+			var (
+				buildPath, buildClean = mustGetCleanTempDir("cacher-buildpath")
+				r                     = rand.New(rand.NewSource(time.Now().UnixNano()))
+				binaryPath            = filepath.Join(buildPath, fmt.Sprintf("binary%d", r.Intn(9999)))
+			)
+			mustCreateTestBinary(binaryPath)
+			return binaryPath, buildClean
+		}
+		p, clean     = mustGetCleanTempDir("cacher-storepath")
+		namespace    = "binaryname"
+		c, err       = cacher.OpenOrCreate(p)
+		testVersions = make([]string, 0)
+	)
+	defer clean()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 10; i++ {
+		var (
+			path, cleanup = newTestBinary()
+			testVersion   = fmt.Sprintf("v%d", i)
+		)
+		if err := c.Cache(namespace, testVersion, path); err != nil {
+			t.Fatalf("caching (%s): %s", path, err.Error())
+		}
+		testVersions = append(testVersions, testVersion)
+		defer cleanup()
+	}
+
+	d, err := cacher.OpenOrCreate(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, version := range testVersions {
+		path, err := d.Get(namespace, version)
+		if err != nil {
+			t.Errorf("getting version (%s): %s", version, err.Error())
+		}
+		if len(path) == 0 {
+			t.Errorf("path for version (%s) was empty", version)
+
+		}
 	}
 }

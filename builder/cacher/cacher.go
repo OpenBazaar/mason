@@ -27,7 +27,7 @@ type Cacher interface {
 }
 
 type cacherImpl struct {
-	sync.Mutex
+	sync.RWMutex
 
 	sourcePath string
 	stores     map[string]cacherStore
@@ -61,6 +61,10 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	defer destFile.Close()
+
+	if err := destFile.Chmod(0755); err != nil {
+		return err
+	}
 
 	buf := make([]byte, 2000)
 	for {
@@ -100,10 +104,7 @@ func writeCacherStoreIndex(store cacherStore, path string) error {
 	if err != nil {
 		return fmt.Errorf("marshaling index: %s", err.Error())
 	}
-	if err := os.MkdirAll(path, 0755); err != nil {
-		return fmt.Errorf("creating store (%s): %s", path, err.Error())
-	}
-	if err := ioutil.WriteFile(filepath.Join(path, defaultCacheStoreFilename), sBytes, 0400); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(path, defaultCacheStoreFilename), sBytes, 0644); err != nil {
 		return fmt.Errorf("writing index: %s", err.Error())
 	}
 	return nil
@@ -149,8 +150,8 @@ func OpenOrCreate(path string) (*cacherImpl, error) {
 // locate cached versions. These strings must match exactly to return
 // a cached binary
 func (c *cacherImpl) Get(store, version string) (string, error) {
-	c.Lock()
-	defer c.Unlock()
+	c.RLock()
+	defer c.RUnlock()
 
 	s, sOK := c.stores[store]
 	if !sOK {
@@ -168,9 +169,6 @@ func (c *cacherImpl) Get(store, version string) (string, error) {
 // not exist, it will be created. Any non-nil should expect the cache
 // is not persisting the binary and will be returned to the prior safe state
 func (c *cacherImpl) Cache(store, version, path string) error {
-	c.Lock()
-	defer c.Unlock()
-
 	var (
 		storePath     = filepath.Join(c.sourcePath, store)
 		cacheFilePath = filepath.Join(storePath, filepath.Base(path))
@@ -188,14 +186,20 @@ func (c *cacherImpl) Cache(store, version, path string) error {
 		return fmt.Errorf("caching binary (%s -> %s): %s", path, cacheFilePath, err.Error())
 	}
 
+	c.Lock()
+	defer c.Unlock()
+
 	if _, ok := c.stores[store]; !ok {
 		c.stores[store] = make(map[string]string)
 	}
 	c.stores[store][version] = cacheFilePath
 
 	if err := writeCacherStoreIndex(c.stores[store], storePath); err != nil {
+		log.Warningf("failed updating cache index: %s", err.Error())
 		delete(c.stores[store], version)
 		return fmt.Errorf("writing store cache: %s", err.Error())
+	} else {
+		log.Infof("updated cache index with version (%s) at (%s)", version, cacheFilePath)
 	}
 
 	return nil

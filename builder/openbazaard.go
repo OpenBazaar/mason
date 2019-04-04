@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/OpenBazaar/samulator/builder/blueprints"
+	"github.com/OpenBazaar/samulator/builder/cacher"
 	"github.com/OpenBazaar/samulator/builder/runner"
 	"github.com/op/go-logging"
 	shell "github.com/placer14/go-shell"
@@ -27,17 +28,22 @@ type openBazaarBuilder struct {
 }
 
 func NewOpenBazaarDaemon(label, version string) *openBazaarBuilder {
+	var homeDir = os.Getenv("HOME")
+	if homeDir == "" {
+		log.Warningf("HOME is unset, using current path")
+		homeDir = "."
+	}
 	return &openBazaarBuilder{
 		friendlyLabel:    label,
 		versionReference: version,
-		cachePath:        fmt.Sprintf("~/.%s", "samulator"),
+		cachePath:        filepath.Join(homeDir, ".samulator", "cache"),
 	}
 }
 
 func (b *openBazaarBuilder) Build() (*runner.OpenBazaarRunner, error) {
-	c, err := cacher.Open(b.cachePath)
+	c, err := cacher.OpenOrCreate(b.cachePath)
 	if err != nil {
-		log.Warningf("failed opening cache (at %s): %s", b.cachePath, err.Error())
+		log.Warningf("failed opening cache (%s): %s", b.cachePath, err.Error())
 	}
 	if runnerPath, err := c.Get("openbazaard", b.versionReference); err == nil {
 		return runner.FromBinaryPath(runnerPath)
@@ -55,19 +61,24 @@ func (b *openBazaarBuilder) Build() (*runner.OpenBazaarRunner, error) {
 		return nil, fmt.Errorf("checkout version: %s", err.Error())
 	}
 
-	runner, err := generateOSSpecificBuild(src)
+	buildPath, err := generateOSSpecificBuild(src)
 	if err != nil {
 		return nil, fmt.Errorf("building for %s: %s", runtime.GOOS, err.Error())
 	}
-	return runner, nil
 
-	if err := cacher.Cache("openbazaard", b.versionReference, binaryPath(src)); err != nil {
-		log.Warningf("failed caching build for %s (%s): %s", "openbazaard", v.versionReference, err.Error())
+	if err := c.Cache("openbazaard", b.versionReference, buildPath); err != nil {
+		log.Warningf("failed caching build for %s (%s): %s", "openbazaard", b.versionReference, err.Error())
+		return nil, fmt.Errorf("caching build: %s", err.Error())
 	}
-	return runner.FromBinaryPath(b.binaryPath())
+
+	runnerPath, err := c.Get("openbazaard", b.versionReference)
+	if err != nil {
+		return nil, fmt.Errorf("retrieving cached build: %s", err.Error())
+	}
+	return runner.FromBinaryPath(runnerPath)
 }
 
-func generateOSSpecificBuild(src *blueprints.OpenBazaarSource) (*runner.OpenBazaarRunner, error) {
+func generateOSSpecificBuild(src *blueprints.OpenBazaarSource) (string, error) {
 	var (
 		getXGo      = shell.Cmd("go", "get", "github.com/karalabe/xgo")
 		buildBinary = shell.Cmd(
@@ -81,12 +92,15 @@ func generateOSSpecificBuild(src *blueprints.OpenBazaarSource) (*runner.OpenBaza
 		buildCommands = []*shell.Command{getXGo, buildBinary}
 	)
 	for _, cmd := range buildCommands {
-		var proc = cmd.SetWorkDir(src.WorkDir()).Run()
+		var proc = cmd.SetWorkDir(src.WorkDir()).Start()
+		if err := proc.Wait(); err != nil {
+			return "", fmt.Errorf("(%v) waiting: %s", proc, err.Error())
+		}
 		if proc.ExitStatus != 0 {
-			return nil, fmt.Errorf("non-zero build exit: %s", proc.Error())
+			return "", fmt.Errorf("non-zero build exit: %s", proc.Error())
 		}
 	}
-	return runner.FromBinaryPath(binaryPath(src))
+	return binaryPath(src), nil
 }
 
 func binaryPath(src *blueprints.OpenBazaarSource) string {
