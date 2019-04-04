@@ -161,7 +161,7 @@ func (c *cacherImpl) Get(store, version string) (string, error) {
 	if !vOK {
 		return "", ErrNoCacheFound
 	}
-	return path, nil
+	return filepath.Join(c.sourcePath, store, path), nil
 }
 
 // Cache accepts a store namespace and version, along with the full path
@@ -170,8 +170,9 @@ func (c *cacherImpl) Get(store, version string) (string, error) {
 // is not persisting the binary and will be returned to the prior safe state
 func (c *cacherImpl) Cache(store, version, path string) error {
 	var (
+		baseFilename  = filepath.Base(path)
 		storePath     = filepath.Join(c.sourcePath, store)
-		cacheFilePath = filepath.Join(storePath, filepath.Base(path))
+		cacheFilePath = filepath.Join(storePath, baseFilename)
 	)
 
 	if _, err := os.Stat(path); err != nil {
@@ -192,7 +193,7 @@ func (c *cacherImpl) Cache(store, version, path string) error {
 	if _, ok := c.stores[store]; !ok {
 		c.stores[store] = make(map[string]string)
 	}
-	c.stores[store][version] = cacheFilePath
+	c.stores[store][version] = baseFilename
 
 	if err := writeCacherStoreIndex(c.stores[store], storePath); err != nil {
 		log.Warningf("failed updating cache index: %s", err.Error())
