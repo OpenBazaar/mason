@@ -3,6 +3,7 @@ package runner
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	shell "github.com/placer14/go-shell"
@@ -12,6 +13,7 @@ var ErrBinaryNotFound = errors.New("binary not found")
 
 type OpenBazaarRunner struct {
 	binaryPath string
+	configPath string
 }
 
 func FromBinaryPath(path string) (*OpenBazaarRunner, error) {
@@ -19,6 +21,26 @@ func FromBinaryPath(path string) (*OpenBazaarRunner, error) {
 		return nil, ErrBinaryNotFound
 	}
 	return &OpenBazaarRunner{binaryPath: path}, nil
+}
+
+func (r *OpenBazaarRunner) SetConfigPath(path string) error {
+	r.configPath = path
+	return nil
+}
+
+func (r *OpenBazaarRunner) startCmd(tee io.Writer) *shell.Command {
+	if r.configPath != "" {
+		return shell.Cmd(r.binaryPath, "start", "-v", "-d", r.configPath).Tee(tee)
+	}
+	return shell.Cmd(r.binaryPath, "start", "-v").Tee(tee)
+}
+
+func (r *OpenBazaarRunner) AsyncStart(tee io.Writer) *shell.Process {
+	return r.startCmd(tee).Start()
+}
+
+func (r *OpenBazaarRunner) RunStart(tee io.Writer) *shell.Process {
+	return r.startCmd(tee).Run()
 }
 
 func (r *OpenBazaarRunner) Version() (string, error) {
