@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/OpenBazaar/samulator/builder/blueprints"
 	"github.com/OpenBazaar/samulator/builder/cacher"
@@ -19,6 +20,8 @@ const GO_BUILD_VERSION = "1.11"
 var log = logging.MustGetLogger("builder")
 
 type openBazaarBuilder struct {
+	sync.Mutex
+
 	cachePath        string
 	friendlyLabel    string
 	versionReference string
@@ -48,6 +51,9 @@ func (b *openBazaarBuilder) Build() (*runner.OpenBazaarRunner, error) {
 	if runnerPath, err := c.Get("openbazaard", b.versionReference); err == nil {
 		return runner.FromBinaryPath(runnerPath)
 	}
+
+	b.Lock()
+	defer b.Unlock()
 
 	b.workDir = generateTempPath(b.friendlyLabel)
 	log.Infof("building at %s", b.workDir)
