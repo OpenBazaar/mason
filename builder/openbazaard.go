@@ -113,6 +113,9 @@ func binaryPath(src *blueprints.OpenBazaarSource) string {
 }
 
 func (b *openBazaarBuilder) MustClean() {
+	if b.workDir == "" {
+		return
+	}
 	if err := os.RemoveAll(b.workDir); err != nil {
 		log.Errorf("cleaning (%s): %s", b.workDir, err.Error())
 		panic(err.Error())
