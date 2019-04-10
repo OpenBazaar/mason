@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/OpenBazaar/samulator/builder"
 	"github.com/jessevdk/go-flags"
@@ -121,10 +122,10 @@ func runNode(label, version, configPath string) error {
 	closeMutex.Lock()
 	defer closeMutex.Unlock()
 
-	pr, pw := io.Pipe()
+	pr := ob.SplitOutput()
 	go logNodeOutput(pr, label)
 
-	proc := ob.AsyncStart(pw)
+	proc := ob.AsyncStart()
 	if proc.ExitStatus != 0 {
 		return fmt.Errorf("starting: %s", proc.Error())
 	}
@@ -133,14 +134,15 @@ func runNode(label, version, configPath string) error {
 		if err := proc.Kill(); err != nil {
 			log.Errorf("killing process: %s", proc.Error())
 		}
-		pw.Close()
+		time.Sleep(1 * time.Second)
+		ob.Cleanup()
 		wg.Done()
 	}
 	closeFns = append(closeFns, close)
 	return nil
 }
 
-func logNodeOutput(r *io.PipeReader, prefix string) {
+func logNodeOutput(r io.ReadCloser, prefix string) {
 	defer r.Close()
 	var (
 		nodeLog = logging.MustGetLogger(prefix)
@@ -158,6 +160,6 @@ func closeNodes() {
 	closeMutex.RLock()
 	defer closeMutex.RUnlock()
 	for _, c := range closeFns {
-		c()
+		go c()
 	}
 }
