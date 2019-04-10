@@ -12,6 +12,8 @@ import (
 
 var ErrBinaryNotFound = errors.New("binary not found")
 
+// OpenBazaarRunner is reponsible for the runtime operations of the
+// openbazaar-go binary
 type OpenBazaarRunner struct {
 	proc           *shell.Process
 	tee            io.WriteCloser
@@ -29,6 +31,7 @@ func FromBinaryPath(path string) (*OpenBazaarRunner, error) {
 	return &OpenBazaarRunner{binaryPath: path}, nil
 }
 
+// WithArgs adds additional arguments for the running binary to recieve
 func (r *OpenBazaarRunner) WithArgs(args []string) {
 	if args == nil {
 		return
@@ -121,4 +124,12 @@ func (r *OpenBazaarRunner) Version() (string, error) {
 		return "", fmt.Errorf("getting version: %s", proc.Error())
 	}
 	return proc.String(), nil
+}
+
+// ExitCodeAndErr returns the exit code and error state of the executed binary
+func (r *OpenBazaarRunner) ExitCodeAndErr() (int, error) {
+	if r.proc == nil {
+		return -65535, nil
+	}
+	return r.proc.ExitStatus, r.proc.Error()
 }
