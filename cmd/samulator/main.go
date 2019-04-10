@@ -125,17 +125,12 @@ func runNode(label, version, configPath string) error {
 	pr := ob.SplitOutput()
 	go logNodeOutput(pr, label)
 
-	proc := ob.AsyncStart()
-	if proc.ExitStatus != 0 {
-		return fmt.Errorf("starting: %s", proc.Error())
-	}
-
+	ob.AsyncStart()
 	close := func() {
-		if err := proc.Kill(); err != nil {
-			log.Errorf("killing process: %s", proc.Error())
+		if err := ob.Cleanup(); err != nil {
+			log.Errorf("cleanup process: %s", err.Error())
 		}
 		time.Sleep(1 * time.Second)
-		ob.Cleanup()
 		wg.Done()
 	}
 	closeFns = append(closeFns, close)

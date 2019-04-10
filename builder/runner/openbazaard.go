@@ -12,6 +12,7 @@ import (
 var ErrBinaryNotFound = errors.New("binary not found")
 
 type OpenBazaarRunner struct {
+	proc       *shell.Process
 	tee        io.WriteCloser
 	binaryPath string
 	configPath string
@@ -46,12 +47,20 @@ func (r *OpenBazaarRunner) SplitOutput() io.ReadCloser {
 // opportunity. It is the responsibility of the consumer to ensure
 // Cleanup is called when the runner is no longer used.
 func (r *OpenBazaarRunner) Cleanup() error {
+	var pErr, tErr error
+	if r.proc != nil {
+		pErr = r.proc.Kill()
+		defer func() { r.proc = nil }()
+	}
 	if r.tee != nil {
-		err := r.tee.Close()
+		tErr = r.tee.Close()
 		r.tee = nil
-		if err != nil {
-			return err
-		}
+	}
+	if pErr != nil {
+		return fmt.Errorf("proc cleanup: %s (%s)", pErr.Error(), r.proc.Error())
+	}
+	if tErr != nil {
+		return fmt.Errorf("tee cleanup: %s", tErr.Error())
 	}
 	return nil
 }
@@ -65,14 +74,16 @@ func (r *OpenBazaarRunner) startCmd() *shell.Command {
 
 // AsyncStart will return immediately to allow other tasks to continue while
 // running.
-func (r *OpenBazaarRunner) AsyncStart() *shell.Process {
-	return r.startCmd().Start()
+func (r *OpenBazaarRunner) AsyncStart() *OpenBazaarRunner {
+	r.proc = r.startCmd().Start()
+	return r
 }
 
 // RunStart will run synchronously and will return when the process finishes
 // running.
-func (r *OpenBazaarRunner) RunStart() *shell.Process {
-	return r.startCmd().Run()
+func (r *OpenBazaarRunner) RunStart() *OpenBazaarRunner {
+	r.proc = r.startCmd().Run()
+	return r
 }
 
 // Version returns the version of the running binary
