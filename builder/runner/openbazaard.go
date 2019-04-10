@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	shell "github.com/placer14/go-shell"
 )
@@ -12,10 +13,11 @@ import (
 var ErrBinaryNotFound = errors.New("binary not found")
 
 type OpenBazaarRunner struct {
-	proc       *shell.Process
-	tee        io.WriteCloser
-	binaryPath string
-	configPath string
+	proc           *shell.Process
+	tee            io.WriteCloser
+	binaryPath     string
+	configPath     string
+	additionalArgs []string
 }
 
 // FromBinaryPath will return an OpenBazaarRunner which uses the binary
@@ -25,6 +27,28 @@ func FromBinaryPath(path string) (*OpenBazaarRunner, error) {
 		return nil, ErrBinaryNotFound
 	}
 	return &OpenBazaarRunner{binaryPath: path}, nil
+}
+
+func (r *OpenBazaarRunner) WithArgs(args []string) {
+	if args == nil {
+		return
+	}
+	// copy all args, then remove and process important ones
+	var additionalArgs = append([]string(nil), args...)
+	r.additionalArgs = r.filterAndApplyArgs(additionalArgs)
+}
+
+func (r *OpenBazaarRunner) filterAndApplyArgs(args []string) []string {
+	for i, arg := range args {
+		if arg == "-d" {
+			if i == len(args)-1 {
+				continue
+			}
+			r.SetConfigPath(args[i+1])
+			return r.filterAndApplyArgs(append(args[:i], args[i+2:]...))
+		}
+	}
+	return args
 }
 
 // SetConfigPath will ensure the running binary starts using the config
@@ -67,9 +91,13 @@ func (r *OpenBazaarRunner) Cleanup() error {
 
 func (r *OpenBazaarRunner) startCmd() *shell.Command {
 	if r.configPath != "" {
-		return shell.Cmd(r.binaryPath, "start", "-v", "-d", r.configPath).Tee(r.tee)
+		return shell.Cmd(r.binaryPath, "start", "-v", "-d", r.configPath, r.additionalArgsString()).Tee(r.tee)
 	}
-	return shell.Cmd(r.binaryPath, "start", "-v").Tee(r.tee)
+	return shell.Cmd(r.binaryPath, "start", "-v", r.additionalArgsString()).Tee(r.tee)
+}
+
+func (r *OpenBazaarRunner) additionalArgsString() string {
+	return strings.Join(r.additionalArgs, " ")
 }
 
 // AsyncStart will return immediately to allow other tasks to continue while
