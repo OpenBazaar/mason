@@ -1,6 +1,6 @@
 # Samulator
 
-A tool for building OpenBazaar simluations.
+A tool for building OpenBazaar simulations.
 
 # Usage
 
