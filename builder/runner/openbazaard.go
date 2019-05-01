@@ -15,11 +15,12 @@ var ErrBinaryNotFound = errors.New("binary not found")
 // OpenBazaarRunner is reponsible for the runtime operations of the
 // openbazaar-go binary
 type OpenBazaarRunner struct {
+	additionalArgs []string
+	binaryPath     string
 	proc           *shell.Process
 	tee            io.WriteCloser
-	binaryPath     string
-	configPath     string
-	additionalArgs []string
+
+	dataPath     string
 }
 
 // FromBinaryPath will return an OpenBazaarRunner which uses the binary
@@ -31,14 +32,22 @@ func FromBinaryPath(path string) (*OpenBazaarRunner, error) {
 	return &OpenBazaarRunner{binaryPath: path}, nil
 }
 
+// SetCustomDataPath will ensure the running binary starts using the state
+// data found at the path provided.
+func (r *OpenBazaarRunner) SetCustomDataPath(path string) error {
+	r.dataPath = path
+	return nil
+}
+
 // WithArgs adds additional arguments for the running binary to recieve
-func (r *OpenBazaarRunner) WithArgs(args []string) {
+func (r *OpenBazaarRunner) WithArgs(args []string) *OpenBazaarRunner {
 	if args == nil {
-		return
+		return r
 	}
 	// copy all args, then remove and process important ones
 	var additionalArgs = append([]string(nil), args...)
 	r.additionalArgs = r.filterAndApplyArgs(additionalArgs)
+	return r
 }
 
 func (r *OpenBazaarRunner) filterAndApplyArgs(args []string) []string {
@@ -47,18 +56,11 @@ func (r *OpenBazaarRunner) filterAndApplyArgs(args []string) []string {
 			if i == len(args)-1 {
 				continue
 			}
-			r.SetConfigPath(args[i+1])
+			r.SetCustomDataPath(args[i+1])
 			return r.filterAndApplyArgs(append(args[:i], args[i+2:]...))
 		}
 	}
 	return args
-}
-
-// SetConfigPath will ensure the running binary starts using the config
-// data found at the path provided.
-func (r *OpenBazaarRunner) SetConfigPath(path string) error {
-	r.configPath = path
-	return nil
 }
 
 // SplitOutput returns a io.ReadCloser which has the stdout and stderr
@@ -76,7 +78,7 @@ func (r *OpenBazaarRunner) SplitOutput() io.ReadCloser {
 func (r *OpenBazaarRunner) Cleanup() error {
 	var pErr, tErr error
 	if r.proc != nil {
-		pErr = r.proc.Kill()
+		pErr = r.Kill()
 		defer func() { r.proc = nil }()
 	}
 	if r.tee != nil {
@@ -93,8 +95,8 @@ func (r *OpenBazaarRunner) Cleanup() error {
 }
 
 func (r *OpenBazaarRunner) startCmd() *shell.Command {
-	if r.configPath != "" {
-		return shell.Cmd(r.binaryPath, "start", "-v", "-d", r.configPath, r.additionalArgsString()).Tee(r.tee)
+	if r.dataPath != "" {
+		return shell.Cmd(r.binaryPath, "start", "-v", "-d", r.dataPath, r.additionalArgsString()).Tee(r.tee)
 	}
 	return shell.Cmd(r.binaryPath, "start", "-v", r.additionalArgsString()).Tee(r.tee)
 }
@@ -114,7 +116,12 @@ func (r *OpenBazaarRunner) AsyncStart() *OpenBazaarRunner {
 // running.
 func (r *OpenBazaarRunner) RunStart() *OpenBazaarRunner {
 	r.proc = r.startCmd().Run()
-	return r
+	return nil
+}
+
+// Kill will ensure the binary process is stopped
+func (r *OpenBazaarRunner) Kill() error {
+	return r.proc.Kill()
 }
 
 // Version returns the version of the running binary

@@ -11,19 +11,29 @@ import (
 
 var (
 	targetOS, targetArch string
+	projectDirectory     = ".samulator"
 
 	homeDir          = os.Getenv("HOME")
-	defaultBuildPath = filepath.Join(homeDir, ".samulator", "build")
+	defaultBuildPath = filepath.Join(homeDir, projectDirectory, "build")
 )
 
-func generateTempPath(buildName string) string {
-	var tempPath = defaultBuildPath
-	if overrideTemp := os.Getenv("BUILD_PATH"); overrideTemp != "" {
-		log.Infof("using alternative BUILD_PATH (%s)", overrideTemp)
-		tempPath = overrideTemp
+func workDir() string {
+	var workDir = os.Getenv("BUILD_PATH")
+	if workDir == "" {
+		workDir = os.Getenv("HOME")
 	}
+	if workDir == "" {
+		workAbsPath, err := filepath.Abs(".")
+		if err == nil {
+			workDir = workAbsPath
+		}
+	}
+	return filepath.Join(workDir, projectDirectory)
+}
+
+func generateTempPath(buildName string) string {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return filepath.Join(tempPath, fmt.Sprintf("samulator_build_%s_%d", buildName, r.Intn(9999)))
+	return filepath.Join(workDir(), fmt.Sprintf("samulator_build_%s_%d", buildName, r.Intn(9999)))
 }
 
 func getXGoBuildTarget() string {

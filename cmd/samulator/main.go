@@ -117,7 +117,7 @@ func runNode(label, version, configPath string) error {
 		return fmt.Errorf("building: %s", err.Error())
 	}
 
-	ob.SetConfigPath(configPath)
+	ob.SetCustomDataPath(configPath)
 
 	closeMutex.Lock()
 	defer closeMutex.Unlock()

@@ -11,16 +11,16 @@ func TestWithArgs(t *testing.T) {
 			{ // only config data flag
 				input: []string{"-d", "foo"},
 				test: func(t *testing.T, r *OpenBazaarRunner) {
-					if r.configPath != "foo" {
-						t.Errorf("expected 'foo' to be set on configPath, but was %s", r.configPath)
+					if r.dataPath != "foo" {
+						t.Errorf("expected 'foo' to be set on dataPath, but was %s", r.dataPath)
 					}
 				},
 			},
 			{ // data flag with additional args
 				input: []string{"other", "flag", "-d", "bar", "flag2"},
 				test: func(t *testing.T, r *OpenBazaarRunner) {
-					if r.configPath != "bar" {
-						t.Errorf("expected 'bar' to be set on configPath, but was %s", r.configPath)
+					if r.dataPath != "bar" {
+						t.Errorf("expected 'bar' to be set on dataPath, but was %s", r.dataPath)
 					}
 					if r.additionalArgsString() != "other flag flag2" {
 						t.Errorf("expected -d flag values to be extracted, but were (%s)", r.additionalArgsString())
@@ -30,8 +30,8 @@ func TestWithArgs(t *testing.T) {
 			{ // quietly ignores missing args after -d
 				input: []string{"flags", "flag2", "-d"},
 				test: func(t *testing.T, r *OpenBazaarRunner) {
-					if r.configPath != "" {
-						t.Errorf("expected configPath to be empty, but was (%s)", r.configPath)
+					if r.dataPath != "" {
+						t.Errorf("expected dataPath to be empty, but was (%s)", r.dataPath)
 					}
 				},
 			},
