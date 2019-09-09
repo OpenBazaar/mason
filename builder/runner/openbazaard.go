@@ -7,21 +7,36 @@ import (
 	"os"
 	"strings"
 
+	"github.com/OpenBazaar/samulator/util"
+	"github.com/otiai10/copy"
 	shell "github.com/placer14/go-shell"
 )
 
-var ErrBinaryNotFound = errors.New("binary not found")
+var (
+	ErrBinaryNotFound                          = errors.New("binary not found")
+	ErrCannotStartStateTransactionWhileRunning = errors.New("state transaction cannot begin when running")
+)
 
 // OpenBazaarRunner is reponsible for the runtime operations of the
 // openbazaar-go binary
-type OpenBazaarRunner struct {
-	additionalArgs []string
-	binaryPath     string
-	proc           *shell.Process
-	tee            io.WriteCloser
+type (
+	runnerState      int
+	OpenBazaarRunner struct {
+		additionalArgs []string
+		binaryPath     string
+		proc           *shell.Process
+		state          runnerState
+		tee            io.WriteCloser
 
-	dataPath     string
-}
+		dataPath   string
+		txDataPath string
+	}
+)
+
+const (
+	stateReady runnerState = iota
+	stateRunning
+)
 
 // FromBinaryPath will return an OpenBazaarRunner which uses the binary
 // located at the path provided.
@@ -38,6 +53,24 @@ func (r *OpenBazaarRunner) SetCustomDataPath(path string) error {
 	r.dataPath = path
 	return nil
 }
+
+func (r *OpenBazaarRunner) BeginNodeStateTransaction() error {
+	fmt.Println(r)
+	switch r.state {
+	case stateRunning:
+		return ErrCannotStartStateTransactionWhileRunning
+	}
+	var tempStatePath = util.GenerateTempPath("openbazaard_state")
+	if err := copy.Copy(r.dataPath, tempStatePath); err != nil {
+		return fmt.Errorf("copying node state: %s", err.Error())
+	}
+	r.txDataPath = tempStatePath
+
+	return nil
+}
+
+//func (r *OpenBazaarRunner) RollbackNodeStateTransaction() error {
+//}
 
 // WithArgs adds additional arguments for the running binary to recieve
 func (r *OpenBazaarRunner) WithArgs(args []string) *OpenBazaarRunner {
@@ -109,6 +142,7 @@ func (r *OpenBazaarRunner) additionalArgsString() string {
 // running.
 func (r *OpenBazaarRunner) AsyncStart() *OpenBazaarRunner {
 	r.proc = r.startCmd().Start()
+	r.state = stateRunning
 	return r
 }
 
@@ -121,6 +155,7 @@ func (r *OpenBazaarRunner) RunStart() *OpenBazaarRunner {
 
 // Kill will ensure the binary process is stopped
 func (r *OpenBazaarRunner) Kill() error {
+	r.state = stateReady
 	return r.proc.Kill()
 }
 

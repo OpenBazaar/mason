@@ -1,6 +1,7 @@
 package cacher_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -39,11 +40,11 @@ func mustCreateTestBinary(path string) {
 func TestCacherCacheAndGet(t *testing.T) {
 	var (
 		buildPath, buildClean = mustGetCleanTempDir("cacher-buildpath")
-		p, clean              = mustGetCleanTempDir("cacher-cacheandget")
-		expectedStore         = "store"
-		expectedVersion       = "version"
-		expectedPath          = filepath.Join(p, expectedStore, "binary")
-		binaryPath            = filepath.Join(buildPath, "binary")
+		p, clean              = mustGetCleanTempDir("cacher-cachepath")
+		expectedStore         = "preparedStoreName"
+		expectedVersion       = "preparedVersionName"
+		expectedPath          = filepath.Join(p, expectedStore, "sampleBinary")
+		binaryPath            = filepath.Join(buildPath, "sampleBinary")
 	)
 	defer clean()
 	defer buildClean()
@@ -54,7 +55,7 @@ func TestCacherCacheAndGet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := c.Get("nonexistantstore", "nonexistantversion"); err == nil {
+	if _, err := c.Get("nonExistantStoreName", "nonExistantVersion"); err == nil {
 		t.Errorf("expected getting non-existant store to return error, but did not")
 	} else {
 		if err != cacher.ErrNoStoreFound {
@@ -66,7 +67,7 @@ func TestCacherCacheAndGet(t *testing.T) {
 		t.Fatalf("expected path cache return success, but returned error: %s", err.Error())
 	}
 
-	if _, err := c.Get(expectedStore, "nonexistantversion"); err == nil {
+	if _, err := c.Get(expectedStore, "nonExistantVersion"); err == nil {
 		t.Errorf("expected getting non-existant version to return error, but did not")
 	} else {
 		if err != cacher.ErrNoCacheFound {
@@ -84,7 +85,7 @@ func TestCacherCacheAndGet(t *testing.T) {
 	}
 }
 
-func TestCacherPersistsReadsIndex(t *testing.T) {
+func TestCacherPersistsAndReadsIndex(t *testing.T) {
 	var (
 		buildPath, buildClean = mustGetCleanTempDir("cacher-buildpath")
 		p, clean              = mustGetCleanTempDir("cacher-persists")
@@ -97,21 +98,21 @@ func TestCacherPersistsReadsIndex(t *testing.T) {
 	defer buildClean()
 	mustCreateTestBinary(binaryPath)
 
-	c, err := cacher.OpenOrCreate(p)
+	persistingCache, err := cacher.OpenOrCreate(p)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := c.Cache(expectedStore, expectedVersion, binaryPath); err != nil {
+	if err := persistingCache.Cache(expectedStore, expectedVersion, binaryPath); err != nil {
 		t.Fatalf("expected path cache return success, but returned error: %s", err.Error())
 	}
 
-	d, err := cacher.OpenOrCreate(p)
+	readingCache, err := cacher.OpenOrCreate(p)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	path, err := d.Get(expectedStore, expectedVersion)
+	path, err := readingCache.Get(expectedStore, expectedVersion)
 	if err != nil {
 		t.Fatalf("expeted get to return success, but returned error: %s", err.Error())
 	}
@@ -156,6 +157,27 @@ func TestCacherCachesAndIndexes(t *testing.T) {
 	if expectedPath != path {
 		t.Errorf("expected path to be (%s), but was (%s)", expectedPath, path)
 	}
+
+	if err := validateCacheIndexHasVersion(indexPath, expectedVersion); err != nil {
+		t.Error(err)
+	}
+}
+
+func validateCacheIndexHasVersion(indexPath, version string) error {
+	indexBytes, err := ioutil.ReadFile(indexPath)
+	if err != nil {
+		return err
+	}
+
+	var cacheIndex = make(map[string]string)
+	if err := json.Unmarshal(indexBytes, &cacheIndex); err != nil {
+		return err
+	}
+
+	if _, ok := cacheIndex[version]; !ok {
+		return fmt.Errorf("version (%s) not found in index", version)
+	}
+	return nil
 }
 
 func TestCanCacheMultiple(t *testing.T) {

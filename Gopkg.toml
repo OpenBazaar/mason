@@ -36,3 +36,7 @@
 [prune]
   go-tests = true
   unused-packages = true
+
+[[constraint]]
+  name = "github.com/otiai10/copy"
+  version = "1.0.1"

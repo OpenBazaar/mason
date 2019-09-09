@@ -18,6 +18,14 @@
   version = "v1"
 
 [[projects]]
+  digest = "1:7c69f3c227b0d085296096a2c7e3185be663c901e8ddad4c95c223aa5cb88bd8"
+  name = "github.com/otiai10/copy"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "a15b9cb96cf2f7930107fe0a9a6faf1b91e69df4"
+  version = "v1.0.1"
+
+[[projects]]
   branch = "master"
   digest = "1:93a9979d5378ee9c64db0c218682dde20855d7c64f7df414d697e38973770195"
   name = "github.com/placer14/go-shell"
@@ -31,6 +39,7 @@
   input-imports = [
     "github.com/jessevdk/go-flags",
     "github.com/op/go-logging",
+    "github.com/otiai10/copy",
     "github.com/placer14/go-shell",
   ]
   solver-name = "gps-cdcl"

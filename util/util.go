@@ -1,4 +1,4 @@
-package builder
+package util
 
 import (
 	"fmt"
@@ -7,14 +7,17 @@ import (
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"github.com/op/go-logging"
 )
 
 var (
 	targetOS, targetArch string
-	projectDirectory     = ".samulator"
 
-	homeDir          = os.Getenv("HOME")
-	defaultBuildPath = filepath.Join(homeDir, projectDirectory, "build")
+	log              = logging.MustGetLogger("util")
+	projectDirectory = ".samulator"
+
+	homeDir = os.Getenv("HOME")
 )
 
 func workDir() string {
@@ -31,12 +34,21 @@ func workDir() string {
 	return filepath.Join(workDir, projectDirectory)
 }
 
-func generateTempPath(buildName string) string {
+// GenerateTempPath provides a safe and well-labeled location
+// to store temporary files which contains state data
+func GenerateTempPath(label string) string {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return filepath.Join(workDir(), fmt.Sprintf("samulator_build_%s_%d", buildName, r.Intn(9999)))
+	return filepath.Join(workDir(), "tmp", fmt.Sprintf("samulator_%s_%d", label, r.Intn(9999)))
 }
 
-func getXGoBuildTarget() string {
+// GenerateTempBuildPath provides a safe and well-labeled location
+// to store temporary files which contains build data
+func GenerateTempBuildPath(label string) string {
+	return GenerateTempPath(fmt.Sprintf("build_%s", label))
+}
+
+// GetXGoBuildTarget returns the appropriate os/arch for the current system's use
+func GetXGoBuildTarget() string {
 	if targetOS == "" {
 		switch runtime.GOOS {
 		case "darwin", "linux", "windows":

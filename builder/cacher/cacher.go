@@ -19,7 +19,7 @@ var log = logging.MustGetLogger("cacher")
 
 // Cacher is used by the builder package to copy the binary of expensive builds.
 type Cacher interface {
-	// Cache a single binary artifact using a namespace and version
+	// Cache a single binary artifact using a namespace and version located at path
 	Cache(namespace, version, path string) error
 	// Get the path for an already cached binary if one exists. An error will
 	// be returned for any case that causes the Cacher to not provide a valid path

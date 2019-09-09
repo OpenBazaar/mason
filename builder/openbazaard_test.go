@@ -41,7 +41,7 @@ func TestOpenBazaarBuildsInParallel(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		expectedVersion := "0.13.1"
-		node := builder.NewOpenBazaarDaemon("label", fmt.Sprintf("v%s", expectedVersion))
+		node := builder.NewOpenBazaarDaemon("obParallelBuilds", fmt.Sprintf("v%s", expectedVersion))
 		defer node.MustClean()
 
 		ob, err := node.Build()

@@ -11,6 +11,7 @@ import (
 	"github.com/OpenBazaar/samulator/builder/blueprints"
 	"github.com/OpenBazaar/samulator/builder/cacher"
 	"github.com/OpenBazaar/samulator/builder/runner"
+	"github.com/OpenBazaar/samulator/util"
 	"github.com/op/go-logging"
 	shell "github.com/placer14/go-shell"
 )
@@ -55,7 +56,7 @@ func (b *openBazaarBuilder) Build() (*runner.OpenBazaarRunner, error) {
 	b.Lock()
 	defer b.Unlock()
 
-	b.workDir = generateTempPath(b.friendlyLabel)
+	b.workDir = util.GenerateTempBuildPath(b.friendlyLabel)
 	log.Infof("building at %s", b.workDir)
 
 	src, err := blueprints.InflateOpenBazaarDaemon(b.workDir)
@@ -89,7 +90,7 @@ func generateOSSpecificBuild(src *blueprints.OpenBazaarSource) (string, error) {
 		getXGo      = shell.Cmd("go", "get", "github.com/karalabe/xgo")
 		buildBinary = shell.Cmd(
 			fmt.Sprintf("GOPATH=%s", src.WorkDir()),
-			"xgo", "-v", "-targets", getXGoBuildTarget(), // build arch/OS targets
+			"xgo", "-v", "-targets", util.GetXGoBuildTarget(), // build arch/OS targets
 			"-dest=./dest",             // build destination path
 			"-out", src.BinaryPrefix(), // binary name prefix
 			"-go", GO_BUILD_VERSION, // specific go build version
@@ -111,7 +112,7 @@ func generateOSSpecificBuild(src *blueprints.OpenBazaarSource) (string, error) {
 
 func binaryPath(src *blueprints.OpenBazaarSource) string {
 	var (
-		targets        = strings.Split(getXGoBuildTarget(), "/")
+		targets        = strings.Split(util.GetXGoBuildTarget(), "/")
 		os, arch       = targets[0], targets[1]
 		binaryFilename = fmt.Sprintf("%s-%s-10.6-%s", src.BinaryPrefix(), os, arch)
 	)
