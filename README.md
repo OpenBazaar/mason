@@ -1,14 +1,46 @@
-# Samulator
+# Mason
 
-A tool for building OpenBazaar simluations.
+A tool for building OpenBazaar simluations, models, and test applications.
 
-# Usage
+## Design/Architecture
 
-## Installation
+The builder was designed with the expectation that there are no prepared binaries or supporting infrastructure available to execute a test. As such, the builder is self-sufficient in producing and executing binaries. This should be kept in mind while improving this codebase as external dependencies may make building the tool easier, they also make using the tool harder. Given that we will likely use this more than build/improve it, we should optimize accordingly.
+
+### Builder
+
+Produces builds of specific applications for use in a simulation. A successful `Build()` should yield a runner for that application.
+
+Builders have a regular interface and should not change their interface from application to application.
+
+Builders rely on Blueprints to inflate the source in preparation for a `Build()`.
+
+#### Disk Use
+
+The builder uses `$HOME/.samulator` for workspace while building and caching binaries for use. This path is expendable and is recreated on each run (at the cost of rebuilding any needed components).
+
+If `$HOME` is not defined, it may be provided or the current working directory will be used instead (ex: `./.samulator`).
+
+### Blueprints
+
+Inflates sourcecode for a specific application and is capable of manipulating the source in preparation for building.
+
+### Cacher
+
+Stores a copy of produced binaries for later use as the `Build()` process tends to be expensive.
+
+The cacher uses `$HOME/.samulator/cache` to store binaries.
+
+## Applications and Usages of Mason
+
+### Samulator
+
+The first example of an app to use Mason is Samulator. It will accept three different data directories and allow individual instances of OpenBazaar to be executed on top of them in parallel, having their output piped to StdOut in an easy to read format.
+
+#### Installation
 
 `go install -i github.com/OpenBazaar/samulator/cmd/samulator`
 
-## Options
+#### Options
 
 ```
 $ samulator -h
@@ -24,7 +56,7 @@ Help Options:
   -h, --help    Show this help message
 ```
 
-## Notes
+#### Notes
 
 - `samulator` currently only runs v0.13.2 of ob-go
 - Recommended: You should create your configuration directories ahead of time as `samulator` will simply `ob-go start -d <config-path>` after building (the default behavior of this is to initialize a new data directory at that location).
@@ -45,35 +77,7 @@ Help Options:
 },
 ```
 
-# Design/Architecture
-
-The builder was designed with the expectation that there are no prepared binaries or supporting infrastructure available to execute a test. As such, the builder is self-sufficient in producing and executing binaries. This should be kept in mind while improving this codebase as external dependencies may make building the tool easier, they also make using the tool harder. Given that we will likely use this more than build/improve it, we should optimize accordingly.
-
-## Builder
-
-Produces builds of specific applications for use in a simulation. A successful `Build()` should yield a runner for that application.
-
-Builders have a regular interface and should not change their interface from application to application.
-
-Builders rely on Blueprints to inflate the source in preparation for a `Build()`.
-
-### Disk Use
-
-The builder uses `$HOME/.samulator` for workspace while building and caching binaries for use. This path is expendable and is recreated on each run (at the cost of rebuilding any needed components).
-
-If `$HOME` is not defined, it may be provided or the current working directory will be used instead (ex: `./.samulator`).
-
-## Blueprints
-
-Inflates sourcecode for a specific application and is capable of manipulating the source in preparation for building.
-
-## Cacher
-
-Stores a copy of produced binaries for later use as the `Build()` process tends to be expensive.
-
-The cacher uses `$HOME/.samulator/cache` to store binaries.
-
-# Contributions/Improvements
+## Contributions/Improvements
 
 Contributions are gladly accepted. Planned improvements include:
 
@@ -81,3 +85,4 @@ Contributions are gladly accepted. Planned improvements include:
 - [ ] Runners can be added to a NetworkSandbox to deterministically isolate/control communications
 - [ ] Builder can create other specializations of ob-go (such as pushnode or gateway configurations)
 - [ ] Runners can manipulate the node's JSON API to complete the QA tests
+- [ ] See (issues)[https://github.com/OpenBazaar/mason/issues] for other areas of need.
