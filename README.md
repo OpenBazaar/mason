@@ -85,4 +85,4 @@ Contributions are gladly accepted. Planned improvements include:
 - [ ] Runners can be added to a NetworkSandbox to deterministically isolate/control communications
 - [ ] Builder can create other specializations of ob-go (such as pushnode or gateway configurations)
 - [ ] Runners can manipulate the node's JSON API to complete the QA tests
-- [ ] See (issues)[https://github.com/OpenBazaar/mason/issues] for other areas of need.
+- [ ] See [issues](https://github.com/OpenBazaar/mason/issues) for other areas of need.
