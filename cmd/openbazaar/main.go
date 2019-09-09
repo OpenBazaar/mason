@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/OpenBazaar/samulator/cmd/openbazaar/subcommands"
+	"github.com/OpenBazaar/mason/cmd/openbazaar/subcommands"
 	"github.com/jessevdk/go-flags"
 	"github.com/op/go-logging"
 )

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/OpenBazaar/samulator/builder"
+	"github.com/OpenBazaar/mason/builder"
 	"github.com/op/go-logging"
 )
 

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OpenBazaar/samulator/builder/cacher"
+	"github.com/OpenBazaar/mason/builder/cacher"
 )
 
 func mustGetCleanTempDir(dirMemo string) (string, func()) {

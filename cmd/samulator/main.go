@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/OpenBazaar/samulator/builder"
+	"github.com/OpenBazaar/mason/builder"
 	"github.com/jessevdk/go-flags"
 	"github.com/op/go-logging"
 	"github.com/placer14/go-shell"

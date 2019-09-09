@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/OpenBazaar/samulator/builder"
+	"github.com/OpenBazaar/mason/builder"
 	shell "github.com/placer14/go-shell"
 )
 

@@ -15,7 +15,7 @@ var (
 	targetOS, targetArch string
 
 	log              = logging.MustGetLogger("util")
-	projectDirectory = ".samulator"
+	projectDirectory = ".mason"
 
 	homeDir = os.Getenv("HOME")
 )
@@ -38,7 +38,7 @@ func workDir() string {
 // to store temporary files which contains state data
 func GenerateTempPath(label string) string {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return filepath.Join(workDir(), "tmp", fmt.Sprintf("samulator_%s_%d", label, r.Intn(9999)))
+	return filepath.Join(workDir(), "tmp", fmt.Sprintf("mason%s_%d", label, r.Intn(9999)))
 }
 
 // GenerateTempBuildPath provides a safe and well-labeled location

@@ -1,6 +1,6 @@
 # Mason
 
-A tool for building OpenBazaar simluations, models, and test applications.
+A tool for building OpenBazaar simulations, models, and test applications.
 
 ## Design/Architecture
 
@@ -16,9 +16,9 @@ Builders rely on Blueprints to inflate the source in preparation for a `Build()`
 
 #### Disk Use
 
-The builder uses `$HOME/.samulator` for workspace while building and caching binaries for use. This path is expendable and is recreated on each run (at the cost of rebuilding any needed components).
+The builder uses `$HOME/.mason` for workspace while building and caching binaries for use. This path is expendable and is recreated on each run (at the cost of rebuilding any needed components).
 
-If `$HOME` is not defined, it may be provided or the current working directory will be used instead (ex: `./.samulator`).
+If `$HOME` is not defined, it may be provided or the current working directory will be used instead (ex: `./.mason`).
 
 ### Blueprints
 
@@ -28,7 +28,7 @@ Inflates sourcecode for a specific application and is capable of manipulating th
 
 Stores a copy of produced binaries for later use as the `Build()` process tends to be expensive.
 
-The cacher uses `$HOME/.samulator/cache` to store binaries.
+The cacher uses `$HOME/.mason/cache` to store binaries.
 
 ## Applications and Usages of Mason
 
@@ -38,7 +38,7 @@ The first example of an app to use Mason is Samulator. It will accept three diff
 
 #### Installation
 
-`go install -i github.com/OpenBazaar/samulator/cmd/samulator`
+`go install -i github.com/OpenBazaar/mason/cmd/samulator`
 
 #### Options
 

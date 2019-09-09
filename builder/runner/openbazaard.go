@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/OpenBazaar/samulator/util"
+	"github.com/OpenBazaar/mason/util"
 	"github.com/otiai10/copy"
 	shell "github.com/placer14/go-shell"
 )

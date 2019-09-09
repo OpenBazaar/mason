@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/OpenBazaar/samulator/util"
+	"github.com/OpenBazaar/mason/util"
 )
 
 func TestWithArgs(t *testing.T) {

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/OpenBazaar/samulator/builder/blueprints"
-	"github.com/OpenBazaar/samulator/builder/cacher"
-	"github.com/OpenBazaar/samulator/builder/runner"
-	"github.com/OpenBazaar/samulator/util"
+	"github.com/OpenBazaar/mason/builder/blueprints"
+	"github.com/OpenBazaar/mason/builder/cacher"
+	"github.com/OpenBazaar/mason/builder/runner"
+	"github.com/OpenBazaar/mason/util"
 	"github.com/op/go-logging"
 	shell "github.com/placer14/go-shell"
 )
@@ -40,7 +40,7 @@ func NewOpenBazaarDaemon(label, version string) *openBazaarBuilder {
 	return &openBazaarBuilder{
 		friendlyLabel:    label,
 		versionReference: version,
-		cachePath:        filepath.Join(homeDir, ".samulator", "cache"),
+		cachePath:        filepath.Join(homeDir, ".mason", "cache"),
 	}
 }
 
