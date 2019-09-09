@@ -1,4 +1,4 @@
-# Mason
+# `Mason`
 
 A tool for building OpenBazaar simulations, models, and test applications.
 
@@ -30,11 +30,52 @@ Stores a copy of produced binaries for later use as the `Build()` process tends 
 
 The cacher uses `$HOME/.mason/cache` to store binaries.
 
-## Applications and Usages of Mason
+## Applications and Examples using `Mason`
+
+### obr
+
+The second app written that uses `mason`. It allows a user to build and cache a specific version of OpenBazaar, as well as run start that version with a specific data folder.
+
+#### Installation
+
+`go install -i github.com/OpenBazaar/mason/cmd/obr`
+
+#### Options
+
+obr
+```
+$ obr -h
+Usage:
+  obr [OPTIONS] <prepare | start>
+
+Help Options:
+  -h, --help  Show this help message
+
+Available commands:
+  prepare  Prepare a cached version of openbazaar-go (aliases: p)
+  start    Start a version of openbazaar-go (aliases: s)
+```
+
+obr start
+```
+$ obr s -h
+Usage:
+  obr [OPTIONS] start [version] [start params...]
+
+Start a version of openbazaar-go which has been cached, or attempt to build it and then start it.
+
+Help Options:
+  -h, --help              Show this help message
+
+[start command arguments]
+  version:                specify the git reference to start
+  start params:           provide params to be passed to daemon on start
+```
+
 
 ### Samulator
 
-The first example of an app to use Mason is Samulator. It will accept three different data directories and allow individual instances of OpenBazaar to be executed on top of them in parallel, having their output piped to StdOut in an easy to read format.
+The first example of an app to use `mason` is Samulator. It will accept three different data directories and allow individual instances of OpenBazaar to be executed on top of them in parallel, having their output piped to StdOut in an easy to read format.
 
 #### Installation
 
