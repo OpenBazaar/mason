@@ -18,8 +18,11 @@ import (
 
 type opts struct {
 	BuyerConfigPath  string `short:"b" long:"buyer" description:"path to buyer configuration"`
+	BuyerVersion     string `long:"buyer-version" description:"SHA to use for buyer node"`
 	VendorConfigPath string `short:"v" long:"vendor" description:"path to vendor configuration"`
+	VendorVersion    string `long:"vendor-version" description:"SHA to use for vendor node"`
 	ModConfigPath    string `short:"m" long:"mod" description:"path to mod configuration"`
+	ModVersion       string `long:"moderator-version" description:"SHA to use for moderator node"`
 }
 
 func (o opts) empty() bool {
@@ -75,7 +78,10 @@ func main() {
 
 	if options.BuyerConfigPath != "" {
 		wg.Add(1)
-		err := runNode("buyer", "v0.13.2", options.BuyerConfigPath)
+		if options.BuyerVersion == "" {
+			options.BuyerVersion = "ethereum-master"
+		}
+		err := runNode("buyer", options.BuyerVersion, options.BuyerConfigPath)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -87,7 +93,10 @@ func main() {
 
 	if options.VendorConfigPath != "" {
 		wg.Add(1)
-		err := runNode("vendor", "v0.13.2", options.VendorConfigPath)
+		if options.VendorVersion == "" {
+			options.VendorVersion = "ethereum-master"
+		}
+		err := runNode("vendor", options.VendorVersion, options.VendorConfigPath)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -99,7 +108,10 @@ func main() {
 
 	if options.ModConfigPath != "" {
 		wg.Add(1)
-		err := runNode("moderator", "v0.13.2", options.ModConfigPath)
+		if options.ModVersion == "" {
+			options.ModVersion = "ethereum-master"
+		}
+		err := runNode("moderator", options.ModVersion, options.ModConfigPath)
 		if err != nil {
 			fmt.Println(err)
 		}
