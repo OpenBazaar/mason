@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/OpenBazaar/mason/util"
+	"github.com/jessevdk/go-flags"
 	"github.com/otiai10/copy"
 	shell "github.com/placer14/go-shell"
 )
@@ -28,8 +28,9 @@ type (
 		state          runnerState
 		tee            io.WriteCloser
 
-		dataPath   string
-		txDataPath string
+		enableTestnet bool
+		dataPath      string
+		txDataPath    string
 	}
 )
 
@@ -54,8 +55,14 @@ func (r *OpenBazaarRunner) SetCustomDataPath(path string) error {
 	return nil
 }
 
+// SetTestnetMode will ensure the running binary starts using the testnet
+// flag
+func (r *OpenBazaarRunner) SetTestnetMode(enabled bool) error {
+	r.enableTestnet = enabled
+	return nil
+}
+
 func (r *OpenBazaarRunner) BeginNodeStateTransaction() error {
-	fmt.Println(r)
 	switch r.state {
 	case stateRunning:
 		return ErrCannotStartStateTransactionWhileRunning
@@ -78,22 +85,31 @@ func (r *OpenBazaarRunner) WithArgs(args []string) *OpenBazaarRunner {
 		return r
 	}
 	// copy all args, then remove and process important ones
-	var additionalArgs = append([]string(nil), args...)
-	r.additionalArgs = r.filterAndApplyArgs(additionalArgs)
+	r.additionalArgs = r.filterAndApplyArgs(append([]string{}, args...))
 	return r
 }
 
 func (r *OpenBazaarRunner) filterAndApplyArgs(args []string) []string {
-	for i, arg := range args {
-		if arg == "-d" {
-			if i == len(args)-1 {
-				continue
-			}
-			r.SetCustomDataPath(args[i+1])
-			return r.filterAndApplyArgs(append(args[:i], args[i+2:]...))
-		}
+	var startOpts struct {
+		DataPath      string `short:"d"`
+		TestnetEnable bool   `short:"t" long:"testnet"`
 	}
-	return args
+
+	remainingArgs, _ := flags.ParseArgs(&startOpts, args)
+
+	// handle testnet
+	r.SetTestnetMode(startOpts.TestnetEnable)
+
+	// handle custom data path
+	if startOpts.DataPath != "" {
+		r.SetCustomDataPath(startOpts.DataPath)
+	}
+
+	return remainingArgs
+}
+
+func (r *OpenBazaarRunner) additionalArgsString() string {
+	return strings.Join(r.additionalArgs, " ")
 }
 
 // SplitOutput returns a io.ReadCloser which has the stdout and stderr
@@ -128,14 +144,17 @@ func (r *OpenBazaarRunner) Cleanup() error {
 }
 
 func (r *OpenBazaarRunner) startCmd() *shell.Command {
+	var cmd = []interface{}{r.binaryPath, "start", "-v"}
 	if r.dataPath != "" {
-		return shell.Cmd(r.binaryPath, "start", "-v", "-d", r.dataPath, r.additionalArgsString()).Tee(r.tee)
+		cmd = append(cmd, "-d", r.dataPath)
 	}
-	return shell.Cmd(r.binaryPath, "start", "-v", r.additionalArgsString()).Tee(r.tee)
-}
-
-func (r *OpenBazaarRunner) additionalArgsString() string {
-	return strings.Join(r.additionalArgs, " ")
+	if r.enableTestnet {
+		cmd = append(cmd, "-t")
+	}
+	for _, a := range r.additionalArgs {
+		cmd = append(cmd, a)
+	}
+	return shell.Cmd(cmd...).Tee(r.tee)
 }
 
 // AsyncStart will return immediately to allow other tasks to continue while

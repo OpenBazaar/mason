@@ -43,6 +43,22 @@ func TestWithArgs(t *testing.T) {
 					}
 				},
 			},
+			{ // supports short testnet flag
+				input: []string{"-t"},
+				test: func(t *testing.T, r *OpenBazaarRunner) {
+					if !r.testnetEnabled {
+						t.Errorf("expected -t to enable testnet, but did not")
+					}
+				},
+			},
+			{ // supports short testnet flag
+				input: []string{"--testnet"},
+				test: func(t *testing.T, r *OpenBazaarRunner) {
+					if !r.testnetEnabled {
+						t.Errorf("expected --testnet to enable testnet, but did not")
+					}
+				},
+			},
 		}
 	)
 

@@ -17,16 +17,23 @@ import (
 )
 
 type opts struct {
+	EnableTestnet bool `long:"testnet" short:"t" description:"start with testnet flag"`
+
 	BuyerConfigPath  string `short:"b" long:"buyer" description:"path to buyer configuration"`
-	BuyerVersion     string `long:"buyer-version" description:"SHA to use for buyer node"`
 	VendorConfigPath string `short:"v" long:"vendor" description:"path to vendor configuration"`
-	VendorVersion    string `long:"vendor-version" description:"SHA to use for vendor node"`
 	ModConfigPath    string `short:"m" long:"mod" description:"path to mod configuration"`
-	ModVersion       string `long:"moderator-version" description:"SHA to use for moderator node"`
+
+	Version       string `long:"version" description:"version of buyer, vendor, or mod if each version is not specified"`
+	BuyerVersion  string `long:"bv" description:"set Buyer SHA to build (overrides --version)"`
+	VendorVersion string `long:"vv" description:"set Vendor SHA to build (overrides --version)"`
+	ModVersion    string `long:"mv" description:"set Buyer SHA to build (overrides --version)"`
 }
 
-func (o opts) empty() bool {
+func (o opts) pathEmpty() bool {
 	return o.BuyerConfigPath == "" && o.VendorConfigPath == "" && o.ModConfigPath == ""
+}
+func (o opts) versionEmpty() bool {
+	return o.Version == "" && o.BuyerVersion == "" && o.VendorVersion == "" && o.ModVersion == ""
 }
 
 var (
@@ -71,17 +78,22 @@ func main() {
 		}
 	}
 
-	if options.empty() {
+	if options.pathEmpty() {
 		log.Errorf("no config paths provided, exiting")
 		os.Exit(3)
+	}
+
+	if options.versionEmpty() {
+		log.Errorf("no build version provided, exiting")
+		os.Exit(4)
 	}
 
 	if options.BuyerConfigPath != "" {
 		wg.Add(1)
 		if options.BuyerVersion == "" {
-			options.BuyerVersion = "ethereum-master"
+			options.BuyerVersion = options.Version
 		}
-		err := runNode("buyer", options.BuyerVersion, options.BuyerConfigPath)
+		err := runNode("buyer", options.BuyerVersion, options.BuyerConfigPath, options.EnableTestnet)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -94,9 +106,9 @@ func main() {
 	if options.VendorConfigPath != "" {
 		wg.Add(1)
 		if options.VendorVersion == "" {
-			options.VendorVersion = "ethereum-master"
+			options.VendorVersion = options.Version
 		}
-		err := runNode("vendor", options.VendorVersion, options.VendorConfigPath)
+		err := runNode("vendor", options.VendorVersion, options.VendorConfigPath, options.EnableTestnet)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -109,9 +121,9 @@ func main() {
 	if options.ModConfigPath != "" {
 		wg.Add(1)
 		if options.ModVersion == "" {
-			options.ModVersion = "ethereum-master"
+			options.ModVersion = options.Version
 		}
-		err := runNode("moderator", options.ModVersion, options.ModConfigPath)
+		err := runNode("moderator", options.ModVersion, options.ModConfigPath, options.EnableTestnet)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -123,13 +135,14 @@ func main() {
 	wg.Wait()
 }
 
-func runNode(label, version, configPath string) error {
+func runNode(label, version, configPath string, enableTestnet bool) error {
 	var ob, err = builder.NewOpenBazaarDaemon(label, version).Build()
 	if err != nil {
 		return fmt.Errorf("building: %s", err.Error())
 	}
 
 	ob.SetCustomDataPath(configPath)
+	ob.SetTestnetMode(enableTestnet)
 
 	closeMutex.Lock()
 	defer closeMutex.Unlock()

@@ -84,22 +84,25 @@ The first example of an app to use `mason` is Samulator. It will accept three di
 #### Options
 
 ```
-$ samulator -h
 Usage:
   samulator [OPTIONS]
 
 Application Options:
-  -b, --buyer=  path to buyer configuration
-  -v, --vendor= path to vendor configuration
-  -m, --mod=    path to mod configuration
+  -t, --testnet  start with testnet flag
+  -b, --buyer=   path to buyer configuration
+  -v, --vendor=  path to vendor configuration
+  -m, --mod=     path to mod configuration
+      --version= version of buyer, vendor, or mod if each version is not specified
+      --bv=      set Buyer SHA to build (overrides --version)
+      --vv=      set Vendor SHA to build (overrides --version)
+      --mv=      set Buyer SHA to build (overrides --version)
 
 Help Options:
-  -h, --help    Show this help message
+  -h, --help     Show this help message
 ```
 
 #### Notes
 
-- `samulator` currently only runs v0.13.2 of ob-go
 - Recommended: You should create your configuration directories ahead of time as `samulator` will simply `ob-go start -d <config-path>` after building (the default behavior of this is to initialize a new data directory at that location).
 - It is recommended that the JSON API listen ports are adjusted for the three nodes to not conflict with each other. For example, change the `Gateway` and `Swarm` addresses to listen on ports which aren't used by other nodes or processes as shown below.
 
