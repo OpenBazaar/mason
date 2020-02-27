@@ -88,21 +88,23 @@ Usage:
   samulator [OPTIONS]
 
 Application Options:
-  -t, --testnet  start with testnet flag
-  -b, --buyer=   path to buyer configuration
-  -v, --vendor=  path to vendor configuration
-  -m, --mod=     path to mod configuration
-      --version= version of buyer, vendor, or mod if each version is not specified
-      --bv=      set Buyer SHA to build (overrides --version)
-      --vv=      set Vendor SHA to build (overrides --version)
-      --mv=      set Buyer SHA to build (overrides --version)
+      --postman-config  override ports for each node to work with postman QA test suite
+  -t, --testnet         start with testnet flag
+  -b, --buyer=          path to buyer configuration
+  -v, --vendor=         path to vendor configuration
+  -m, --mod=            path to mod configuration
+      --version=        version of buyer, vendor, or mod if each version is not specified
+      --bv=             set Buyer SHA to build (overrides --version)
+      --vv=             set Vendor SHA to build (overrides --version)
+      --mv=             set Buyer SHA to build (overrides --version)
 
 Help Options:
-  -h, --help     Show this help message
+  -h, --help            Show this help message
 ```
 
 #### Notes
 
+- Postman QA testing: If you're using `samulator` along with Postman QA test suite, you can pass in `--postman-config` to override the ports as needed. Configuration need not exist before running the command. Testnet is supported as well.
 - Recommended: You should create your configuration directories ahead of time as `samulator` will simply `ob-go start -d <config-path>` after building (the default behavior of this is to initialize a new data directory at that location).
 - It is recommended that the JSON API listen ports are adjusted for the three nodes to not conflict with each other. For example, change the `Gateway` and `Swarm` addresses to listen on ports which aren't used by other nodes or processes as shown below.
 

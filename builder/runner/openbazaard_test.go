@@ -2,9 +2,11 @@ package runner
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/OpenBazaar/mason/util"
@@ -46,7 +48,7 @@ func TestWithArgs(t *testing.T) {
 			{ // supports short testnet flag
 				input: []string{"-t"},
 				test: func(t *testing.T, r *OpenBazaarRunner) {
-					if !r.testnetEnabled {
+					if !r.enableTestnet {
 						t.Errorf("expected -t to enable testnet, but did not")
 					}
 				},
@@ -54,7 +56,7 @@ func TestWithArgs(t *testing.T) {
 			{ // supports short testnet flag
 				input: []string{"--testnet"},
 				test: func(t *testing.T, r *OpenBazaarRunner) {
-					if !r.testnetEnabled {
+					if !r.enableTestnet {
 						t.Errorf("expected --testnet to enable testnet, but did not")
 					}
 				},
@@ -69,13 +71,37 @@ func TestWithArgs(t *testing.T) {
 	}
 }
 
+func TestSetCustomDataPathChecksInitialized(t *testing.T) {
+	var (
+		subject   = &OpenBazaarRunner{}
+		statePath = util.GenerateTempBuildPath("test_nodestatecopiesorig")
+	)
+	if err := os.MkdirAll(filepath.Join(statePath, "extraDir"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if subject.state != stateReady {
+		t.Errorf("expected runner to be state (%d), but was (%d)", stateReady, subject.state)
+	}
+	if err := subject.SetCustomDataPath(statePath); err != nil {
+		t.Fatal(err)
+	}
+	if subject.state != stateInitialized {
+		t.Errorf("expected runner to be state (%d), but was (%d)", stateInitialized, subject.state)
+	}
+
+}
+
 func TestBeginNodeStateTransactionRequiresReadyState(t *testing.T) {
 	var examples = []struct {
 		state       runnerState
 		expectedErr error
 	}{
-		{ // normal case, no error
+		{ // raw case, no error
 			state:       stateReady,
+			expectedErr: nil,
+		},
+		{ // init'd case, no error
+			state:       stateInitialized,
 			expectedErr: nil,
 		},
 		{ // cannot start state transaction while running
@@ -86,9 +112,7 @@ func TestBeginNodeStateTransactionRequiresReadyState(t *testing.T) {
 
 	for _, e := range examples {
 		var (
-			s = &OpenBazaarRunner{
-				state: e.state,
-			}
+			s         = &OpenBazaarRunner{}
 			statePath = util.GenerateTempPath("stateTransactionRequiresReady")
 		)
 		if err := os.MkdirAll(filepath.Join(statePath, "extraDir"), 0755); err != nil {
@@ -101,8 +125,11 @@ func TestBeginNodeStateTransactionRequiresReadyState(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		// set state
+		s.state = e.state
+
 		if err := s.BeginNodeStateTransaction(); err != e.expectedErr {
-			t.Errorf("expected state (%d) to be error (%s), but was (%s)", e.state, e.expectedErr, err)
+			t.Errorf("expected state (%d) to be error (%s), but was (%v)", e.state, e.expectedErr, err)
 		}
 	}
 }
@@ -152,5 +179,87 @@ func TestBeginNodeStateCopiesStateTree(t *testing.T) {
 		if s.Mode().Perm() != 0755 {
 			t.Errorf("expected copied node state nested folder to have the file permissions (%o), but was (%o)", 0755, s.Mode())
 		}
+	}
+}
+
+func TestSetConfigValue(t *testing.T) {
+	type nestConfig struct {
+		TwoKey   string   `json:"twoKey"`
+		ThreeKey []string `json:"threeKey"`
+	}
+	type config struct {
+		OneKey     string     `json:"oneKey"`
+		NestStruct nestConfig `json:"nestStruct"`
+		Untouched  string     `json:"donttouch"`
+	}
+
+	var (
+		subject    = &OpenBazaarRunner{}
+		statePath  = util.GenerateTempBuildPath("test_nodestatecopiesorig")
+		testConfig = config{
+			OneKey: "1",
+			NestStruct: nestConfig{
+				TwoKey: "0",
+				ThreeKey: []string{
+					"one",
+					"two",
+				},
+			},
+			Untouched: "nonzero",
+		}
+		configPath  = filepath.Join(statePath, "config")
+		expectedArr = []string{"three", "four"}
+	)
+	if err := os.MkdirAll(filepath.Join(statePath, "extraDir"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	configContent, err := json.Marshal(testConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile(configPath, configContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := subject.SetCustomDataPath(statePath); err != nil {
+		t.Fatal(err)
+	}
+	if err := subject.SetConfigValue("oneKey", "2"); err != nil {
+		t.Fatal(err)
+	}
+	if err := subject.SetConfigValue("nestStruct.twoKey", "3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := subject.SetConfigValue("nestStruct.threeKey", expectedArr); err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(b, &testConfig); err != nil {
+		t.Fatal(err)
+	}
+
+	if testConfig.OneKey != "2" {
+		t.Errorf("expected outer key to be (2), but was (%s)", testConfig.OneKey)
+	}
+	if testConfig.NestStruct.TwoKey != "3" {
+		t.Errorf("expected nested key to be (3), but was (%s)", testConfig.NestStruct.TwoKey)
+	}
+	if !reflect.DeepEqual(expectedArr, testConfig.NestStruct.ThreeKey) {
+		t.Errorf("expected string array to be (%v), but was (%v)", expectedArr, testConfig.NestStruct.ThreeKey)
+	}
+	if testConfig.Untouched != "nonzero" {
+		t.Errorf("expected nested key to be (nonzero), but was (%s)", testConfig.Untouched)
+	}
+}
+
+func TestSetConfigValueFailsIfNotInitialized(t *testing.T) {
+	var subject = &OpenBazaarRunner{state: stateReady}
+	if err := subject.SetConfigValue("", ""); err == nil {
+		t.Fatal("expected uninitialized runner to error, but did not")
+	} else if err != ErrInitNodeBeforeConfigValueSet {
+		t.Fatalf("expected error to be (%v), but was (%v)", ErrInitNodeBeforeConfigValueSet, err)
 	}
 }

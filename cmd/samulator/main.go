@@ -17,7 +17,8 @@ import (
 )
 
 type opts struct {
-	EnableTestnet bool `long:"testnet" short:"t" description:"start with testnet flag"`
+	OverridePostmanQAConfig bool `long:"postman-config" description:"override ports for each node to work with postman QA test suite"`
+	EnableTestnet           bool `long:"testnet" short:"t" description:"start with testnet flag"`
 
 	BuyerConfigPath  string `short:"b" long:"buyer" description:"path to buyer configuration"`
 	VendorConfigPath string `short:"v" long:"vendor" description:"path to vendor configuration"`
@@ -35,6 +36,12 @@ func (o opts) pathEmpty() bool {
 func (o opts) versionEmpty() bool {
 	return o.Version == "" && o.BuyerVersion == "" && o.VendorVersion == "" && o.ModVersion == ""
 }
+
+const (
+	buyer     = "buy"
+	vendor    = "ven"
+	moderator = "mod"
+)
 
 var (
 	wg         sync.WaitGroup
@@ -88,15 +95,19 @@ func main() {
 		os.Exit(4)
 	}
 
+	var nodeOpts = nodeOptions{
+		enableTestnet:         options.EnableTestnet,
+		overridePostmanConfig: options.OverridePostmanQAConfig,
+	}
 	if options.BuyerConfigPath != "" {
 		wg.Add(1)
 		if options.BuyerVersion == "" {
 			options.BuyerVersion = options.Version
 		}
-		err := runNode("buyer", options.BuyerVersion, options.BuyerConfigPath, options.EnableTestnet)
-		if err != nil {
-			fmt.Println(err)
-		}
+		nodeOpts.label = buyer
+		nodeOpts.configPath = options.BuyerConfigPath
+		nodeOpts.version = options.BuyerVersion
+		err := runNode(nodeOpts)
 		if err != nil {
 			log.Errorf("running node: %s", err.Error())
 			os.Exit(2)
@@ -108,10 +119,10 @@ func main() {
 		if options.VendorVersion == "" {
 			options.VendorVersion = options.Version
 		}
-		err := runNode("vendor", options.VendorVersion, options.VendorConfigPath, options.EnableTestnet)
-		if err != nil {
-			fmt.Println(err)
-		}
+		nodeOpts.label = vendor
+		nodeOpts.configPath = options.VendorConfigPath
+		nodeOpts.version = options.VendorVersion
+		err := runNode(nodeOpts)
 		if err != nil {
 			log.Errorf("running node: %s", err.Error())
 			os.Exit(2)
@@ -123,10 +134,10 @@ func main() {
 		if options.ModVersion == "" {
 			options.ModVersion = options.Version
 		}
-		err := runNode("moderator", options.ModVersion, options.ModConfigPath, options.EnableTestnet)
-		if err != nil {
-			fmt.Println(err)
-		}
+		nodeOpts.label = moderator
+		nodeOpts.configPath = options.ModConfigPath
+		nodeOpts.version = options.ModVersion
+		err := runNode(nodeOpts)
 		if err != nil {
 			log.Errorf("running node: %s", err.Error())
 			os.Exit(2)
@@ -135,30 +146,87 @@ func main() {
 	wg.Wait()
 }
 
-func runNode(label, version, configPath string, enableTestnet bool) error {
-	var ob, err = builder.NewOpenBazaarDaemon(label, version).Build()
+type nodeOptions struct {
+	label      string
+	version    string
+	configPath string
+
+	enableTestnet         bool
+	overridePostmanConfig bool
+}
+
+func runNode(opts nodeOptions) error {
+	var ob, err = builder.NewOpenBazaarDaemon(opts.label, opts.version).Build()
 	if err != nil {
 		return fmt.Errorf("building: %s", err.Error())
 	}
-
-	ob.SetCustomDataPath(configPath)
-	ob.SetTestnetMode(enableTestnet)
 
 	closeMutex.Lock()
 	defer closeMutex.Unlock()
 
 	pr := ob.SplitOutput()
-	go logNodeOutput(pr, label)
+	go logNodeOutput(pr, opts.label)
+
+	ob.SetCustomDataPath(opts.configPath)
+	ob.SetTestnetMode(opts.enableTestnet)
+
+	if opts.overridePostmanConfig {
+		ob.Init()
+		switch opts.label {
+		case buyer:
+			err := ob.SetConfigValue("Addresses.Gateway", "/ip4/127.0.0.1/tcp/4002")
+			if err != nil {
+				return fmt.Errorf("failed to set buyer Address.Gateway: %s", err.Error())
+			}
+			err = ob.SetConfigValue("Addresses.Swarm", []string{
+				"/ip4/0.0.0.0/tcp/4001",
+				"/ip6/::/tcp/4001",
+				"/ip4/0.0.0.0/tcp/9005/ws",
+				"/ip6/::/tcp/9005/ws",
+			})
+			if err != nil {
+				return fmt.Errorf("failed to set buyer Address.Swarm: %s", err.Error())
+			}
+		case vendor:
+			err := ob.SetConfigValue("Addresses.Gateway", "/ip4/127.0.0.1/tcp/4102")
+			if err != nil {
+				return fmt.Errorf("failed to set buyer Address.Gateway: %s", err.Error())
+			}
+			err = ob.SetConfigValue("Addresses.Swarm", []string{
+				"/ip4/0.0.0.0/tcp/4101",
+				"/ip6/::/tcp/4101",
+				"/ip4/0.0.0.0/tcp/9105/ws",
+				"/ip6/::/tcp/9105/ws",
+			})
+			if err != nil {
+				return fmt.Errorf("failed to set buyer Address.Swarm: %s", err.Error())
+			}
+		case moderator:
+			err := ob.SetConfigValue("Addresses.Gateway", "/ip4/127.0.0.1/tcp/4202")
+			if err != nil {
+				return fmt.Errorf("failed to set buyer Address.Gateway: %s", err.Error())
+			}
+			err = ob.SetConfigValue("Addresses.Swarm", []string{
+				"/ip4/0.0.0.0/tcp/4201",
+				"/ip6/::/tcp/4201",
+				"/ip4/0.0.0.0/tcp/9205/ws",
+				"/ip6/::/tcp/9205/ws",
+			})
+			if err != nil {
+				return fmt.Errorf("failed to set buyer Address.Swarm: %s", err.Error())
+			}
+		}
+	}
 
 	ob.AsyncStart()
-	close := func() {
+	closeFn := func() {
 		if err := ob.Cleanup(); err != nil {
 			log.Errorf("cleanup process: %s", err.Error())
 		}
 		time.Sleep(1 * time.Second)
 		wg.Done()
 	}
-	closeFns = append(closeFns, close)
+	closeFns = append(closeFns, closeFn)
 	return nil
 }
 

@@ -1,10 +1,14 @@
 package runner
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/OpenBazaar/mason/util"
 	"github.com/jessevdk/go-flags"
@@ -15,6 +19,7 @@ import (
 var (
 	ErrBinaryNotFound                          = errors.New("binary not found")
 	ErrCannotStartStateTransactionWhileRunning = errors.New("state transaction cannot begin when running")
+	ErrInitNodeBeforeConfigValueSet            = errors.New("node must be initialized before setting config values")
 )
 
 // OpenBazaarRunner is reponsible for the runtime operations of the
@@ -36,6 +41,7 @@ type (
 
 const (
 	stateReady runnerState = iota
+	stateInitialized
 	stateRunning
 )
 
@@ -48,9 +54,63 @@ func FromBinaryPath(path string) (*OpenBazaarRunner, error) {
 	return &OpenBazaarRunner{binaryPath: path}, nil
 }
 
+// SetConfigValue will follow a dot-separated string pointing to the nested
+// config key to change, and change it to the provided string value
+func (r *OpenBazaarRunner) SetConfigValue(path string, value interface{}) error {
+	if r.state < stateInitialized {
+		return ErrInitNodeBeforeConfigValueSet
+	}
+	configPath := filepath.Join(r.dataPath, "config")
+	fi, err := os.Stat(configPath)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("could not find config at (%s)", configPath)
+	} else if err != nil {
+		return fmt.Errorf("stat config at (%s): %s", configPath, err.Error())
+	}
+	b, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("reading config: %s", err.Error())
+	}
+	var config map[string]interface{}
+	if err := json.Unmarshal(b, &config); err != nil {
+		return fmt.Errorf("unmarshal config: %s", err.Error())
+	}
+
+	// set value and write new config
+	if err := walkAndSetJSON(strings.Split(path, "."), value, config); err != nil {
+		return fmt.Errorf("setting json value: %s", err.Error())
+	}
+
+	newBytes, err := json.Marshal(config)
+	err = ioutil.WriteFile(configPath, newBytes, fi.Mode())
+	if err != nil {
+		return fmt.Errorf("writing config changes: %s", err.Error())
+	}
+	return nil
+}
+
+func walkAndSetJSON(path []string, value interface{}, jsonMap map[string]interface{}) error {
+	if len(path) > 1 {
+		jsonMsgRemain, ok := jsonMap[path[0]]
+		if !ok {
+			return fmt.Errorf("path segment (%s) not found", path[0])
+		}
+		newJSONMap, ok := jsonMsgRemain.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unable to cast json fragment")
+		}
+		return walkAndSetJSON(path[1:], value, newJSONMap)
+	}
+	jsonMap[path[0]] = value
+	return nil
+}
+
 // SetCustomDataPath will ensure the running binary starts using the state
 // data found at the path provided.
 func (r *OpenBazaarRunner) SetCustomDataPath(path string) error {
+	if _, err := os.Stat(path); err == nil {
+		r.state = stateInitialized
+	}
 	r.dataPath = path
 	return nil
 }
@@ -155,6 +215,29 @@ func (r *OpenBazaarRunner) startCmd() *shell.Command {
 		cmd = append(cmd, a)
 	}
 	return shell.Cmd(cmd...).Tee(r.tee)
+}
+
+func (r *OpenBazaarRunner) initCmd() *shell.Command {
+	var cmd = []interface{}{r.binaryPath, "init", "-v"}
+	if r.dataPath != "" {
+		cmd = append(cmd, "-d", r.dataPath)
+	}
+	if r.enableTestnet {
+		cmd = append(cmd, "-t")
+	}
+	return shell.Cmd(cmd...).Tee(r.tee)
+}
+
+// Init will synchronously initialize the node
+func (r *OpenBazaarRunner) Init() *OpenBazaarRunner {
+	if r.state >= stateInitialized {
+		return r
+	}
+	r.proc = r.initCmd().Run()
+	if r.proc.ExitStatus == 0 {
+		r.state = stateInitialized
+	}
+	return r
 }
 
 // AsyncStart will return immediately to allow other tasks to continue while
